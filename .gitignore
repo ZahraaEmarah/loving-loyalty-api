@@ -1,0 +1,13 @@
+# Byte-compiled / optimized / DLL files
+.venv/
+__pycache__/
+*.pyc
+instance
+.env
+.pytest_cache/
+htmlcov/
+.coverage
+*.egg-info/
+dist/
+build/
+.mypy_cache/
