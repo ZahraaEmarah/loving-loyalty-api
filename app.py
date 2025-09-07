@@ -54,8 +54,8 @@ logger = logging.getLogger(__name__)
 class ForecastingService:
     def __init__(self):
         # CHANGE THIS TO YOUR PROJECT ID
-        self.project_id = "YOUR-PROJECT-ID"  # Replace with your project ID
-        self.bucket_name = f"{self.project_id}-ml-models"
+        self.project_id = ""  # Replace with your project ID
+        self.bucket_name = f"{self.project_id}_ml_models"
         
         # Check if we're running locally or in the cloud
         service_account_path = "service-account.json"
@@ -322,6 +322,55 @@ def list_models():
         "total_models": len(model_info),
         "models": model_info
     })
+
+@app.route('/forecast_place_inventory', methods=['POST'])
+def forecast_place_inventory():
+    """
+    Returns a list of all items in the given place_id with their current and predicted stock.
+    """
+    try:
+        data = request.json
+        place_id = data.get('place_id')
+        steps = data.get('steps', 12)
+
+        if not place_id:
+            return jsonify({"error": "You must provide place_id"}), 400
+
+        # Query BigQuery for all item_ids in this place
+        query = f"""
+            SELECT DISTINCT oi.item_id
+            FROM LovingLoyaltyDB.fct_orders o
+            JOIN LovingLoyaltyDB.fct_orders_items oi ON o.id = oi.order_id
+            WHERE o.place_id = {place_id}
+              AND oi.status = 'Fulfilled'
+        """
+        try:
+            item_df = forecasting_service.bigquery_client.query(query).to_dataframe()
+            item_ids = item_df['item_id'].tolist()
+        except Exception as e:
+            logger.error(f"Error fetching items for place {place_id}: {e}")
+            return jsonify({"error": f"Could not fetch items for place {place_id}: {str(e)}"}), 500
+
+        results = []
+        for item_id in item_ids:
+            forecast_result = forecasting_service.forecast(place_id, item_id, steps)
+            results.append({
+                "item_id": item_id,
+                "current_stock": forecast_result.get("current_data", {}).get("current_weekly_orders", None),
+                "predicted_stock": forecast_result.get("forecast", {}).get("predictions", []),
+                "model_metadata": forecast_result.get("model_metadata", {}),
+                "comparison": forecast_result.get("comparison", {})
+            })
+
+        return jsonify({
+            "place_id": place_id,
+            "items": results,
+            "total_items": len(results)
+        })
+
+    except Exception as e:
+        logger.error(f"Error in forecast_place_inventory: {e}")
+        return jsonify({"error": str(e)}), 500
 
 # Start the web service
 if __name__ == '__main__':

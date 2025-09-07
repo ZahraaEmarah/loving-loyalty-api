@@ -166,7 +166,7 @@ class InventoryForecaster:
 if __name__ == "__main__":
     # CHANGE THESE TO YOUR VALUES
     PROJECT_ID = "nse-gcp-ema-tt-0eee5-sbx-1"  # Replace with your project ID
-    BUCKET_NAME = f"{PROJECT_ID}-ml-models"  # We'll create this bucket
+    BUCKET_NAME = f"{PROJECT_ID}_ml_models"  # We'll create this bucket
     
     print("🚀 Starting model training...")
     forecaster = InventoryForecaster(PROJECT_ID)
